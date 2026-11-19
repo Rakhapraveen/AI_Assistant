@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Infinity — AI Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark')</script>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config={darkMode:'class'}</script>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body,#root{height:100%;margin:0}
+body{background:#faf9f5;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+html.dark body{background:#262624}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.up{animation:up .35s ease both}
+@keyframes bn{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}
+.dot{width:6px;height:6px;border-radius:9999px;background:#d97757;display:inline-block;animation:bn 1.2s infinite}
+.dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
+@keyframes bl{50%{opacity:0}}
+.caret{display:inline-block;width:7px;height:1em;background:#d97757;margin-left:2px;vertical-align:-2px;animation:bl 1s steps(1) infinite}
+.tc{color:#7f8490;font-style:italic}.ts{color:#9ece6a}.tn{color:#e0af68}.tk{color:#ff9e64}.tt{color:#7aa2f7}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#8884;border-radius:8px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState,useRef,useEffect}=React;
+const html=htm.bind(React.createElement);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* ---------- Lucide icon paths (inline) ---------- */
+const IC={
+ plus:'<path d="M5 12h14M12 5v14"/>',
+ panel:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
+ sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-15.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+ moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+ copy:'<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+ check:'<path d="M20 6 9 17l-5-5"/>',
+ redo:'<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+ up:'<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>',
+ down:'<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/>',
+ send:'<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+ stop:'<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>',
+ chev:'<path d="m6 9 6 6 6-6"/>',
+ msg:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+ code:'<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+ smile:'<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
+ zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+ search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+ folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+ layers:'<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+ briefcase:'<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
+ filter:'<path d="M3 6h18M7 12h10M10 18h4"/>',
+ download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+ sparkle:'<path d="m12 3 1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/>',
+ x:'<path d="M18 6 6 18M6 6l12 12"/>',
+ logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+ logo:'<path d="M6 16c5 0 7-8 12-8a4 4 0 0 1 0 8c-5 0-7-8-12-8a4 4 0 1 0 0 8"/>'
+};
+const Ic=({n,s=18,cls=''})=>html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className=${cls} dangerouslySetInnerHTML=${{__html:IC[n]}}/>`;
+
+/* ---------- helpers ---------- */
+async function copy(t){try{await navigator.clipboard.writeText(t);return true}catch(e){try{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();return true}catch(e2){return false}}}
+const KW='def|return|if|else|elif|for|while|in|import|from|class|const|let|var|function|print|export|default|new|true|false|True|False|None|null|range|len|lambda|async|await|and|or|not|yield|SELECT|FROM|WHERE|JOIN|ON|GROUP|BY|ORDER|LIMIT|AS|DESC|ASC|COUNT';
+const HL=new RegExp('(\\/\\/.*|#.*|--.*)|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')|\\b(\\d+\\.?\\d*)\\b|\\b('+KW+')\\b|(&lt;\\/?[a-zA-Z0-9]+)','g');
+const hl=c=>c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(HL,(m,a,b,n,k,t)=>`<span class="${a?'tc':b?'ts':n?'tn':k?'tk':'tt'}">${m}</span>`);
+
+/* ---------- Rich text ---------- */
+const inline=s=>s.split(/(\*\*[^*]+\*\*|`[^`]+`)/).map((p,i)=>p.startsWith('**')&&p.length>4?html`<strong key=${i}>${p.slice(2,-2)}</strong>`:p.startsWith('`')&&p.length>2?html`<code key=${i} className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[0.9em] font-mono">${p.slice(1,-1)}</code>`:p);
+const Text=({t})=>t.split(/\n\n+/).filter(Boolean).map((para,i)=>{const L=para.split('\n');
+ return L.every(l=>l.startsWith('- '))?html`<ul key=${i} className="list-disc pl-5 my-2 space-y-1">${L.map((l,j)=>html`<li key=${j}>${inline(l.slice(2))}</li>`)}</ul>`
+ :html`<p key=${i} className="my-2">${L.map((l,j)=>html`<span key=${j}>${j>0&&html`<br/>`}${inline(l)}</span>`)}</p>`});
+const CodeBlock=({lang,code})=>{const[c,setC]=useState(false);
+ return html`<div className="my-3 rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-[#1f1e1d] text-left">
+  <div className="flex items-center justify-between px-4 py-2 text-xs text-[#a6a39a] bg-[#2b2a28]"><span>${lang||'code'}</span>
+   <button onClick=${async()=>{if(await copy(code)){setC(true);setTimeout(()=>setC(false),1600)}}} className="flex items-center gap-1.5 hover:text-white transition"><${Ic} n=${c?'check':'copy'} s=${14}/>${c?'Copied!':'Copy code'}</button></div>
+  <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-[#e8e6dc] font-mono"><code dangerouslySetInnerHTML=${{__html:hl(code)}}/></pre></div>`};
+const Rich=({text})=>{const out=[],re=/```(\w*)\n?([\s\S]*?)(?:```|$)/g;let last=0,m,k=0;
+ while((m=re.exec(text))!==null){if(m.index>last)out.push(html`<${Text} key=${k++} t=${text.slice(last,m.index)}/>`);out.push(html`<${CodeBlock} key=${k++} lang=${m[1]} code=${m[2].replace(/\n$/,'')}/>`);last=m.index+m[0].length}
+ if(last<text.length)out.push(html`<${Text} key=${k++} t=${text.slice(last)}/>`);return out};
+
+const Act=({n,on,label,active})=>html`<button title=${label} onClick=${on} className=${'p-1.5 rounded-lg transition hover:bg-black/5 dark:hover:bg-white/10 '+(active?'text-[#d97757]':'text-neutral-500 dark:text-neutral-400')}><${Ic} n=${n} s=${16}/></button>`;
+
+const SYS={general:'You are Infinity, a friendly, concise AI assistant.',coder:'You are Infinity, an expert coding assistant. Give working code in fenced blocks with a language tag.',writer:'You are Infinity, a creative writing partner. Be vivid and imaginative.',tamil:'You are Infinity, a fun Tamil/Tanglish buddy. Reply in casual Tanglish (Tamil written in English letters). Stay helpful and friendly.'};
+let sp=null;
+const getSample=()=>sp||(sp=(window.claude&&window.claude.use?window.claude.use('sample'):Promise.resolve(null)).catch(()=>null));
+const PERS={general:'✨ General Assistant',coder:'💻 Coding Expert',writer:'✍️ Creative Writer',tamil:'🎬 Tamil/Tanglish Buddy'};
+
+const ld=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const inp='w-full px-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#262624] outline-none focus:border-[#d97757] transition';
+const btn='px-4 py-2 rounded-xl bg-[#d97757] text-white text-sm font-medium hover:brightness-110 active:scale-95 transition';
+const Search=({chats,go})=>{const[q,setQ]=useState('');const s=q.trim().toLowerCase();
+ const res=chats.filter(c=>!s||c.title.toLowerCase().includes(s)||c.messages.some(m=>m.content.toLowerCase().includes(s)));
+ return html`<div><input autoFocus value=${q} onChange=${e=>setQ(e.target.value)} placeholder="Search your chats…" className=${inp}/>
+  <div className="mt-3 space-y-1">${res.length===0&&html`<p className="text-sm text-neutral-500 py-4 text-center">No chats found.</p>`}
+  ${res.map(c=>{const m=s&&c.messages.find(m=>m.content.toLowerCase().includes(s));const i=m?m.content.toLowerCase().indexOf(s):0;
+   return html`<button key=${c.id} onClick=${()=>go(c.id)} className="w-full text-left px-3 py-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition"><div className="text-sm font-medium">${c.title}</div>${m&&html`<div className="text-xs text-neutral-500 truncate">…${m.content.slice(Math.max(0,i-30),i+60).replace(/\n/g,' ')}…</div>`}</button>`})}</div></div>`};
+const Projects=({projects,setProjects,chats,proj,use,del})=>{const[n,setN]=useState(''),[ins,setIns]=useState('');
+ const add=()=>{if(!n.trim())return;setProjects(p=>[...p,{id:uid(),name:n.trim(),ins:ins.trim()}]);setN('');setIns('')};
+ return html`<div><div className="space-y-2">
+  <input value=${n} onChange=${e=>setN(e.target.value)} placeholder="Project name" className=${inp}/>
+  <textarea value=${ins} onChange=${e=>setIns(e.target.value)} rows="2" placeholder="Instructions for this project (optional)" className=${inp}></textarea>
+  <button onClick=${add} className=${btn}>Create project</button></div>
+  <div className="mt-5 grid gap-2">${projects.length===0&&html`<p className="text-sm text-neutral-500 text-center py-3">No projects yet. Projects group related chats and give Infinity shared instructions.</p>`}
+  ${projects.map(p=>html`<div key=${p.id} className=${'rounded-xl border p-3 '+(p.id===proj?'border-[#d97757]':'border-black/10 dark:border-white/10')}>
+   <div className="flex items-center justify-between gap-2"><div><div className="font-medium">${p.name}</div><div className="text-xs text-neutral-500">${chats.filter(c=>c.pid===p.id).length} chats</div></div>
+    <div className="flex items-center gap-2"><button onClick=${()=>use(p.id)} className=${btn}>${p.id===proj?'Active — new chat':'Start chat'}</button><button onClick=${()=>del(p.id)} className="text-sm text-red-500 px-2">Delete</button></div></div>
+   ${p.ins&&html`<p className="text-xs mt-2 text-neutral-500">${p.ins}</p>`}</div>`)}</div></div>`};
+const Artifacts=({chats,go})=>{const items=[];
+ chats.forEach(c=>c.messages.forEach(m=>{if(m.role==='ai')[...m.content.matchAll(/```(\w*)\n?([\s\S]*?)```/g)].forEach(x=>items.push({c,lang:x[1],code:x[2].replace(/\n$/,''),k:m.id+items.length}))}));
+ return html`<div>${items.length===0&&html`<p className="text-sm text-neutral-500 text-center py-6">No artifacts yet. Ask Infinity to “write a Python function to reverse a string” and the code will collect here.</p>`}
+ ${items.map(a=>html`<div key=${a.k}><div className="flex items-center justify-between text-xs text-neutral-500 mt-3"><span>From: ${a.c.title}</span><button onClick=${()=>go(a.c.id)} className="underline hover:text-[#d97757]">Open chat</button></div><${CodeBlock} lang=${a.lang} code=${a.code}/></div>`)}</div>`};
+const Custom=({prefs,save})=>{const[n,setN]=useState(prefs.name||''),[ins,setIns]=useState(prefs.ins||''),[p,setP]=useState(prefs.persona||'general'),[ok,setOk]=useState(false);
+ return html`<div className="space-y-4">
+  <label className="block text-sm">What should Infinity call you?<input value=${n} onChange=${e=>setN(e.target.value)} className=${inp+' mt-1'}/></label>
+  <label className="block text-sm">Custom instructions<textarea rows="4" value=${ins} onChange=${e=>setIns(e.target.value)} placeholder="e.g. Keep answers short. Explain code line by line." className=${inp+' mt-1'}></textarea></label>
+  <label className="block text-sm">Default persona<select value=${p} onChange=${e=>setP(e.target.value)} className=${inp+' mt-1'}>${Object.entries(PERS).map(([k,v])=>html`<option key=${k} value=${k}>${v}</option>`)}</select></label>
+  <button onClick=${()=>{save({...prefs,name:n.trim(),ins:ins.trim(),persona:p});setOk(true);setTimeout(()=>setOk(false),1800)}} className=${btn}>${ok?'Saved ✓':'Save'}</button></div>`};
+const Memory=({prefs,save})=>{const[t,setT]=useState(prefs.mem||''),[ok,setOk]=useState(false);
+ return html`<div className="space-y-3"><p className="text-sm text-neutral-500">Paste anything you want Infinity to remember — a memory export from another AI assistant, your preferences, or facts about you. It’s kept in this browser and used in every chat.</p>
+ <textarea rows="8" value=${t} onChange=${e=>setT(e.target.value)} placeholder="I’m a student from Chennai. I like concise answers…" className=${inp}></textarea>
+ <div className="flex gap-2"><button onClick=${()=>{save({...prefs,mem:t.trim()});setOk(true);setTimeout(()=>setOk(false),1800)}} className=${btn}>${ok?'Saved ✓':'Save memory'}</button><button onClick=${()=>{setT('');save({...prefs,mem:''})}} className="px-4 py-2 text-sm rounded-xl border border-black/10 dark:border-white/10">Clear</button></div></div>`};
+
+const DEF={"us": "c48e1edffe7acd741e3057b0b67a5826", "uh": "edc71e0ce5641f5d4b51aee98d9ae260c0cef4c8fa75407ed571eff5dfffab7a", "ps": "ef694b968295487fa1efaf222581d835", "ph": "c45b5e4d3182ae83807e0ef4b2b331dcaee3e07183001e3dfd396615bc8abef1", "rs": "57f677c6f331db0e7f482c85fa115636", "rh": "58ef1a3b786d7a8318e7defa802dacf34b230f95272c603a97e19ca400789886"};
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+const unhex=h=>new Uint8Array(h.match(/../g).map(x=>parseInt(x,16)));
+const rnd=n=>hex(crypto.getRandomValues(new Uint8Array(n)));
+async function kdf(t,saltHex){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(t),'PBKDF2',false,['deriveBits']);return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:unhex(saltHex),iterations:100000},k,256))}
+const mkCode=()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',c=[...crypto.getRandomValues(new Uint8Array(12))].map(x=>A[x%32]).join('');return 'INF-'+c.slice(0,4)+'-'+c.slice(4,8)+'-'+c.slice(8)};
+const norm=t=>t.toUpperCase().replace(/[^A-Z0-9]/g,'');
+const Field=({label,value,set,type,auto,right})=>html`<label className="block text-sm mb-3">${label}<div className="relative mt-1"><input type=${type||'text'} value=${value} autoComplete=${auto} onChange=${e=>set(e.target.value)} className=${inp+(right?' pr-16':'')}/>${right}</div></label>`;
+function Login({onOk}){
+ const [mode,setMode]=useState('in'),[u,setU]=useState(''),[p,setP]=useState(''),[show,setShow]=useState(false);
+ const [code,setCode]=useState(''),[np,setNp]=useState(''),[np2,setNp2]=useState('');
+ const [err,setErr]=useState(''),[okm,setOkm]=useState(''),[busy,setBusy]=useState(false),[newCode,setNewCode]=useState(null),[now,setNow]=useState(Date.now()),[cp,setCp]=useState(false);
+ const lk=ld('inf_lock',{n:0,until:0}),wait=Math.max(0,Math.ceil((lk.until-now)/1000));
+ useEffect(()=>{if(wait<=0)return;const t=setInterval(()=>setNow(Date.now()),500);return()=>clearInterval(t)},[wait>0]);
+ const rec=()=>{const r=ld('inf_cred',null);return r&&r.uh&&r.ph&&r.rh&&r.us&&r.ps&&r.rs?r:DEF};
+ const fail=m=>{const n=lk.n+1;sv('inf_lock',{n,until:n%5===0?Date.now()+Math.min(600,30*2**(n/5-1))*1000:0});setNow(Date.now());setErr(m)};
+ const login=async()=>{if(busy||wait>0)return;setErr('');setOkm('');
+  if(!u.trim()||!p){setErr('Enter your username and password.');return}
+  setBusy(true);
+  try{const r=rec();const [a,b]=await Promise.all([kdf(u.trim().toLowerCase(),r.us),kdf(p,r.ps)]);
+   if(a===r.uh&&b===r.ph){sv('inf_lock',{n:0,until:0});try{sessionStorage.setItem('inf_ok','1')}catch(e){}onOk();return}
+   fail('Incorrect username or password.')}catch(e){setErr('Sign-in failed. Please try again.')}
+  setBusy(false)};
+ const reset=async()=>{if(busy||wait>0)return;setErr('');
+  if(np.length<8||!/[A-Za-z]/.test(np)||!/\d/.test(np)){setErr('New password needs at least 8 characters, with a letter and a number.');return}
+  if(np!==np2){setErr('The two new passwords don’t match.');return}
+  setBusy(true);
+  try{const r=rec();const [a,b]=await Promise.all([kdf(u.trim().toLowerCase(),r.us),kdf(norm(code),r.rs)]);
+   if(a===r.uh&&b===r.rh){const ps=rnd(16),rs=rnd(16),nc=mkCode();
+    sv('inf_cred',{us:r.us,uh:r.uh,ps,ph:await kdf(np,ps),rs,rh:await kdf(norm(nc),rs)});sv('inf_lock',{n:0,until:0});setNewCode(nc)}
+   else fail('Username or recovery code is incorrect.')}catch(e){setErr('Reset failed. Please try again.')}
+  setBusy(false)};
+ const to=m=>{setMode(m);setErr('');setP('');setCode('');setNp('');setNp2('')};
+ const enter=fn=>e=>{if(e.key==='Enter')fn()};
+ const sub=mode==='in'?'Log in to continue':newCode?'Password updated':'Reset your password';
+ return html`<div className="min-h-full flex items-center justify-center p-4 bg-[#faf9f5] dark:bg-[#262624] text-[#1f1e1d] dark:text-[#e8e6dc] overflow-y-auto">
+  <div onKeyDown=${enter(mode==='in'?login:newCode?()=>{}:reset)} className="up w-full max-w-sm rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-[#30302e] shadow-xl p-7">
+   <div className="flex flex-col items-center text-center mb-6"><span className="text-[#10b981]"><${Ic} n="logo" s=${48}/></span><h1 className="font-serif text-3xl mt-2">Infinity</h1><p className="text-sm text-neutral-500 mt-1">${sub}</p></div>
+   ${mode==='in'?html`<div>
+     <${Field} label="Username" value=${u} set=${setU} auto="username"/>
+     <${Field} label="Password" value=${p} set=${setP} type=${show?'text':'password'} auto="current-password" right=${html`<button type="button" onClick=${()=>setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500 hover:text-[#10b981]">${show?'Hide':'Show'}</button>`}/>
+     <div className="text-right -mt-1 mb-4"><button onClick=${()=>to('reset')} className="text-sm text-[#10b981] hover:underline">Forgot password?</button></div>
+     <button onClick=${login} disabled=${busy||wait>0} className=${btn+' w-full disabled:opacity-50 disabled:cursor-not-allowed'}>${busy?'Checking…':'Log in'}</button>
+    </div>`
+   :newCode?html`<div className="space-y-4">
+     <p className="text-sm">Your password has been changed. Save your new recovery code — it replaces the old one and is shown only once.</p>
+     <div className="flex items-center justify-between gap-2 rounded-xl border border-[#10b981]/40 bg-[#10b981]/10 px-4 py-3 font-mono text-sm tracking-wider"><span>${newCode}</span><button onClick=${async()=>{if(await copy(newCode)){setCp(true);setTimeout(()=>setCp(false),1500)}}} className="text-xs underline">${cp?'Copied':'Copy'}</button></div>
+     <button onClick=${()=>{setNewCode(null);to('in');setOkm('Password updated. Log in with your new password.')}} className=${btn+' w-full'}>I’ve saved it — back to log in</button></div>`
+   :html`<div>
+     <${Field} label="Username" value=${u} set=${setU} auto="username"/>
+     <${Field} label="Recovery code" value=${code} set=${setCode}/>
+     <${Field} label="New password" value=${np} set=${setNp} type="password" auto="new-password"/>
+     <${Field} label="Confirm new password" value=${np2} set=${setNp2} type="password" auto="new-password"/>
+     <button onClick=${reset} disabled=${busy||wait>0} className=${btn+' w-full disabled:opacity-50 disabled:cursor-not-allowed'}>${busy?'Checking…':'Reset password'}</button>
+     <div className="text-center mt-3"><button onClick=${()=>to('in')} className="text-sm text-neutral-500 hover:underline">Back to log in</button></div></div>`}
+   ${okm&&html`<p className="mt-4 text-sm text-center text-[#10b981]">${okm}</p>`}
+   ${err&&html`<p className="mt-4 text-sm text-center text-red-500">${err}</p>`}
+   ${wait>0&&html`<p className="mt-2 text-sm text-center text-neutral-500">Too many attempts. Try again in ${wait}s.</p>`}
+   <p className="mt-6 text-center text-[11px] text-neutral-500">Authorised users only.</p>
+  </div></div>`}
+function Root(){const [ok,setOk]=useState(()=>{try{return sessionStorage.getItem('inf_ok')==='1'}catch(e){return false}});
+ const out=()=>{try{sessionStorage.removeItem('inf_ok')}catch(e){}setOk(false)};
+ return ok?html`<${App} onLogout=${out}/>`:html`<${Login} onOk=${()=>setOk(true)}/>`}
+
+function App({onLogout}){
+ const [dark,setDark]=useState(document.documentElement.classList.contains('dark'));
+ const [open,setOpen]=useState(window.innerWidth>=768);
+ const [persona,setPersona]=useState(()=>ld('rk_prefs',{}).persona||'general');
+ const [chats,setChats]=useState(()=>ld('rk_chats',[]).map(c=>({...c,messages:c.messages.map(m=>({...m,streaming:false}))})));const [aid,setAid]=useState(null);
+ const [input,setInput]=useState('');const [busy,setBusy]=useState(false);
+ 
+ const [prefs,setPrefs]=useState(()=>ld('rk_prefs',{}));const [projects,setProjects]=useState(()=>ld('rk_proj',[]));
+ const [proj,setProj]=useState(null);const [view,setView]=useState(null);const [flt,setFlt]=useState('all');
+ const [fold,setFold]=useState(false);const [menu,setMenu]=useState(null);const [ren,setRen]=useState(null);
+ const timer=useRef(null),endRef=useRef(null),taRef=useRef(null),abortRef=useRef(null);
+ const chat=chats.find(c=>c.id===aid),msgs=chat?chat.messages:[];
+ useEffect(()=>{endRef.current&&endRef.current.scrollIntoView({block:'end'})},[chats,aid]);
+
+ const toggle=()=>{const d=!dark;setDark(d);document.documentElement.classList.toggle('dark',d)};
+ const upd=(cid,mid,patch)=>setChats(cs=>cs.map(c=>c.id!==cid?c:{...c,messages:c.messages.map(m=>m.id===mid?{...m,...patch}:m)}));
+ const run=async(cid,mid,t,hist)=>{setBusy(true);const ac=new AbortController();abortRef.current=ac;
+  const sample=await getSample();
+  if(sample){try{
+   const h=hist.slice(-8).map(m=>(m.role==='user'?'User: ':'Infinity: ')+m.content).join('\n');
+   const prompt=SYS[persona]+ctx()+' Use light markdown (bold, - bullet lists, fenced code with a language tag). Keep replies focused.\n\n'+(h?'Conversation so far:\n'+h+'\n\n':'')+'Latest user message:\n'+t;
+   const r=await sample(prompt,{cache:false,signal:ac.signal,onText:({text})=>upd(cid,mid,{content:text})});
+   upd(cid,mid,{content:r.text,streaming:false});setBusy(false);return
+  }catch(e){if(ac.signal.aborted)return}}
+  if(ac.signal.aborted)return;
+  upd(cid,mid,{content:'I couldn’t reach Claude. Please allow Infinity to use Claude when asked, then regenerate this reply or send your message again.',streaming:false});setBusy(false)};
+ const stop=()=>{clearTimeout(timer.current);if(abortRef.current)abortRef.current.abort();setChats(cs=>cs.map(c=>({...c,messages:c.messages.map(m=>m.streaming?{...m,streaming:false}:m)})));setBusy(false)};
+ const send=txt=>{const t=(typeof txt==='string'?txt:input).trim();if(!t||busy)return;
+  let cid=aid;const hist=chat?chat.messages.filter(m=>m.content):[];const um={id:uid(),role:'user',content:t},am={id:uid(),role:'ai',content:'',streaming:true};
+  if(!cid||!chat){cid=uid();const nc={id:cid,title:t.slice(0,32),pid:proj,messages:[um,am]};setChats(cs=>[nc,...cs]);setAid(cid)}
+  else setChats(cs=>cs.map(c=>c.id===cid?{...c,messages:[...c.messages,um,am]}:c));
+  setInput('');if(taRef.current)taRef.current.style.height='auto';run(cid,am.id,t,hist)};
+ const regen=mid=>{if(busy||!chat)return;const i=chat.messages.findIndex(m=>m.id===mid),u=chat.messages[i-1];if(!u)return;
+  upd(chat.id,mid,{content:'',streaming:true,fb:null,local:false});run(chat.id,mid,u.content,chat.messages.slice(0,i-1).filter(m=>m.content))};
+ const newChat=()=>{stop();setAid(null);setInput('');if(window.innerWidth<768)setOpen(false)};
+ const lastAi=[...msgs].reverse().find(m=>m.role==='ai');
+ const patch=(id,p)=>setChats(cs=>cs.map(c=>c.id===id?{...c,...p}:c));
+ const del=id=>{if(id===aid){stop();setAid(null)}setChats(cs=>cs.filter(c=>c.id!==id))};
+ const list=chats.filter(c=>flt==='all'||(flt==='star'?c.star:c.pid===flt)).sort((a,b)=>(b.star?1:0)-(a.star?1:0));
+ const go=id=>{if(busy)stop();setAid(id);setView(null);if(window.innerWidth<768)setOpen(false)};
+ const savePrefs=p=>{setPrefs(p);if(p.persona&&p.persona!==prefs.persona)setPersona(p.persona)};
+ const codeMode=()=>{setPersona('coder');newChat()};
+ const useProj=id=>{setProj(id);setView(null);newChat()};
+ const delProj=id=>{setProjects(p=>p.filter(x=>x.id!==id));setChats(cs=>cs.map(c=>c.pid===id?{...c,pid:null}:c));if(proj===id)setProj(null);if(flt===id)setFlt('all')};
+ const ctx=()=>{const pr=projects.find(p=>p.id===(chat?chat.pid:proj));return (prefs.name?' The user’s name is '+prefs.name+'.':'')+(prefs.ins?' Custom instructions from the user: '+prefs.ins+'.':'')+(prefs.mem?' Things to remember about the user: '+prefs.mem.slice(0,1500)+'.':'')+(pr&&pr.ins?' Project “'+pr.name+'” instructions: '+pr.ins+'.':'')};
+ useEffect(()=>{if(!busy)sv('rk_chats',chats.map(c=>({...c,messages:c.messages.filter(m=>m.content).map(m=>({...m,streaming:false}))})))},[chats,busy]);
+ useEffect(()=>sv('rk_prefs',prefs),[prefs]);useEffect(()=>sv('rk_proj',projects),[projects]);
+ useEffect(()=>{const f=()=>setMenu(null);document.addEventListener('click',f);return()=>document.removeEventListener('click',f)},[]);
+ const nav=(ic,lb,on,bd)=>html`<button onClick=${on} className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/5 active:scale-[.98] transition"><${Ic} n=${ic} s=${18}/><span className="flex-1 text-left truncate">${lb}</span>${bd&&html`<span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400">${bd}</span>`}</button>`;
+ const mi='w-full text-left px-3 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10';
+ const row=c=>html`<div key=${c.id} className=${'up relative flex items-center rounded-lg text-sm transition '+(c.id===aid?'bg-black/10 dark:bg-white/10':'hover:bg-black/5 dark:hover:bg-white/5')}>
+  ${ren===c.id?html`<input autoFocus defaultValue=${c.title} onBlur=${e=>{patch(c.id,{title:e.target.value.trim()||c.title});setRen(null)}} onKeyDown=${e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape'){e.target.value=c.title;e.target.blur()}}} className="flex-1 min-w-0 mx-2 my-1 px-2 py-1 rounded bg-transparent border border-[#d97757] outline-none"/>`
+  :html`<button onClick=${()=>go(c.id)} className="flex-1 min-w-0 text-left truncate px-3 py-2">${c.star?'★ ':''}${c.title}</button>
+   <button title="More" onClick=${e=>{e.stopPropagation();setMenu(menu===c.id?null:c.id)}} className="px-2 py-1 mr-1 rounded opacity-60 hover:opacity-100">⋯</button>`}
+  ${menu===c.id&&html`<div className="absolute right-1 top-9 z-40 w-36 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#30302e] shadow-lg p-1">
+   <button onClick=${()=>setRen(c.id)} className=${mi}>Rename</button>
+   <button onClick=${()=>patch(c.id,{star:!c.star})} className=${mi}>${c.star?'Unstar':'Star'}</button>
+   <button onClick=${()=>del(c.id)} className=${mi+' text-red-500'}>Delete</button></div>`}</div>`;
+ const panel=()=>{const T={search:'Search chats',projects:'Projects',artifacts:'Artifacts',custom:'Customize Infinity',memory:'Import memory'}[view];
+  return html`<div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 bg-black/40" onClick=${()=>setView(null)}>
+   <div onClick=${e=>e.stopPropagation()} className="up w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-[#faf9f5] dark:bg-[#30302e] text-[#1f1e1d] dark:text-[#e8e6dc] border border-black/10 dark:border-white/10 shadow-2xl">
+    <div className="flex items-center justify-between px-5 py-3 border-b border-black/10 dark:border-white/10"><h2 className="font-serif text-xl">${T}</h2><button title="Close" onClick=${()=>setView(null)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><${Ic} n="x"/></button></div>
+    <div className="p-5 overflow-y-auto">${view==='search'?html`<${Search} chats=${chats} go=${go}/>`:view==='projects'?html`<${Projects} projects=${projects} setProjects=${setProjects} chats=${chats} proj=${proj} use=${useProj} del=${delProj}/>`:view==='artifacts'?html`<${Artifacts} chats=${chats} go=${go}/>`:view==='custom'?html`<${Custom} prefs=${prefs} save=${savePrefs}/>`:html`<${Memory} prefs=${prefs} save=${savePrefs}/>`}</div></div></div>`};
+
+ return html`<div className="flex h-full overflow-hidden text-[#1f1e1d] dark:text-[#e8e6dc] bg-[#faf9f5] dark:bg-[#262624] transition-colors duration-300">
+  ${open&&html`<div onClick=${()=>setOpen(false)} className="md:hidden fixed inset-0 z-20 bg-black/40"></div>`}
+  <aside style=${{paddingTop:'env(safe-area-inset-top,0px)'}} className=${'fixed md:static inset-y-0 left-0 z-30 shrink-0 overflow-hidden bg-[#f0eee6] dark:bg-[#1f1e1d] border-r border-black/5 dark:border-white/5 transition-all duration-300 '+(open?'w-64 translate-x-0':'w-64 -translate-x-full md:w-0 md:translate-x-0 md:border-0')}>
+   <div className="w-64 h-full flex flex-col p-3">
+    <div className="flex items-center gap-2 px-2 py-2 mb-2"><span className="text-[#10b981]"><${Ic} n="logo" s=${22}/></span><span className="font-serif text-xl tracking-tight">Infinity</span></div>
+    <div className="space-y-0.5">${nav('plus','New',newChat)}${nav('search','Search',()=>setView('search'))}${nav('folder','Projects',()=>setView('projects'))}${nav('layers','Artifacts',()=>setView('artifacts'))}${nav('code','Code',codeMode)}${nav('briefcase','Customize',()=>setView('custom'))}</div>
+    <div className="mt-5 mb-1 px-2 flex items-center justify-between text-xs text-neutral-500"><button onClick=${()=>setFold(!fold)} className="flex items-center gap-1 hover:text-current">Chats and tasks<span className=${fold?'-rotate-90':''}><${Ic} n="chev" s=${14}/></span></button>
+     <div className="relative p-1 hover:text-current"><${Ic} n="filter" s=${16}/><select title="Filter chats" value=${flt} onChange=${e=>setFlt(e.target.value)} className="absolute inset-0 w-full opacity-0 cursor-pointer"><option value="all">All chats</option><option value="star">Starred</option>${projects.map(p=>html`<option key=${p.id} value=${p.id}>${p.name}</option>`)}</select></div></div>
+    ${!fold&&html`<div className="space-y-0.5 mb-1">${nav('download','Import memory',()=>setView('memory'),!prefs.mem&&'Try')}${nav('sparkle','Customize Infinity for you',()=>setView('custom'),!prefs.ins&&!prefs.name&&'Try')}</div>`}
+    <div className=${'flex-1 overflow-y-auto space-y-0.5 '+(fold?'hidden':'')}>
+     ${chats.length===0&&html`<div className="px-2 py-2 text-sm text-neutral-500">No chats yet — say hi!</div>`}
+     ${list.map(row)}
+    </div>
+    <div className="pt-2 mt-1 border-t border-black/10 dark:border-white/10">${nav('logout','Log out',onLogout)}</div>
+   </div>
+  </aside>
+
+  <main className="flex-1 flex flex-col min-w-0">
+   <header className="flex items-center gap-2 px-3 py-2.5 border-b border-black/5 dark:border-white/5">
+    <button title="Toggle sidebar" onClick=${()=>setOpen(!open)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition"><${Ic} n="panel"/></button>
+    <div className="relative">
+     <select value=${persona} onChange=${e=>setPersona(e.target.value)} className="appearance-none cursor-pointer bg-transparent border border-black/10 dark:border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-sm outline-none hover:bg-black/5 dark:hover:bg-white/10 transition">
+      ${Object.entries(PERS).map(([k,v])=>html`<option key=${k} value=${k} className="text-black">${v}</option>`)}
+     </select>
+     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-60"><${Ic} n="chev" s=${14}/></span>
+    </div>
+    ${proj&&html`<button title="Leave project" onClick=${()=>setProj(null)} className="ml-1 text-xs px-2.5 py-1 rounded-full bg-[#d97757]/10 text-[#d97757] hover:bg-[#d97757]/20 transition">📁 ${(projects.find(p=>p.id===proj)||{}).name} ✕</button>`}
+    <div className="flex-1"></div>
+    <button title="Log out" onClick=${onLogout} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition"><${Ic} n="logout"/><span className="hidden sm:inline text-sm">Log out</span></button>
+    <button title="Toggle theme" onClick=${toggle} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition"><${Ic} n=${dark?'sun':'moon'}/></button>
+   </header>
+
+   <div className="flex-1 overflow-y-auto">
+    <div className="max-w-3xl mx-auto px-4 py-6 min-h-full flex flex-col">
+     ${msgs.length===0?html`<div className="up flex-1 flex flex-col items-center justify-center text-center py-8">
+       <span className="text-[#10b981]"><${Ic} n="logo" s=${44}/></span>
+       <h1 className="font-serif text-3xl sm:text-4xl mt-4">${persona==='tamil'?'Vanakkam':'Hello'}${prefs.name?' '+prefs.name:''}, I’m Infinity</h1>
+       <p className="mt-2 text-neutral-500">How can I help you today?</p>
+       
+      </div>`
+     :html`<div className="space-y-6">${msgs.map(m=>m.role==='user'
+       ?html`<div key=${m.id} className="up flex justify-end"><div className="max-w-[85%] px-4 py-2.5 rounded-2xl bg-[#e8e6dc] dark:bg-[#3a3936] whitespace-pre-wrap break-words">${m.content}</div></div>`
+       :html`<div key=${m.id} className="up flex gap-3">
+         <span className="mt-1 text-[#10b981] shrink-0"><${Ic} n="logo" s=${22}/></span>
+         <div className="min-w-0 flex-1 leading-relaxed">
+          ${m.streaming&&!m.content?html`<div className="flex items-center gap-2 text-sm text-neutral-500 py-1"><span className="dot"></span><span className="dot"></span><span className="dot"></span><span className="ml-1">Infinity is typing…</span></div>`
+          :html`<div><${Rich} text=${m.content}/>${m.streaming&&html`<span className="caret"></span>`}</div>`}
+          ${!m.streaming&&m.content&&html`<div className="flex items-center gap-0.5 mt-1 -ml-1.5">
+            <${CopyBtn} text=${m.content}/>
+            ${lastAi&&lastAi.id===m.id&&html`<${Act} n="redo" label="Regenerate" on=${()=>regen(m.id)}/>`}
+            <${Act} n="up" label="Good response" active=${m.fb==='up'} on=${()=>upd(chat.id,m.id,{fb:m.fb==='up'?null:'up'})}/>
+            <${Act} n="down" label="Bad response" active=${m.fb==='down'} on=${()=>upd(chat.id,m.id,{fb:m.fb==='down'?null:'down'})}/>
+          </div>`}
+         </div></div>`)}</div>`}
+     <div ref=${endRef}></div>
+    </div>
+   </div>
+
+   <div className="px-4 pb-3 pt-1">
+    <div className="max-w-3xl mx-auto">
+     <div className="flex items-end gap-2 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#30302e] p-2 shadow-sm focus-within:border-[#d97757] transition">
+      <textarea ref=${taRef} rows="1" value=${input} placeholder=${'Message Infinity…'}
+       onChange=${e=>setInput(e.target.value)}
+       onInput=${e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px'}}
+       onKeyDown=${e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}
+       className="flex-1 resize-none bg-transparent outline-none px-2 py-2 max-h-48 placeholder:text-neutral-400"></textarea>
+      <button title=${busy?'Stop':'Send'} onClick=${()=>busy?stop():send()} disabled=${!busy&&!input.trim()} className="p-2.5 rounded-xl bg-[#d97757] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"><${Ic} n=${busy?'stop':'send'} s=${18}/></button>
+     </div>
+     
+    </div>
+   </div>
+  </main>
+ ${view&&panel()}
+ </div>`}
+
+function CopyBtn({text}){const[c,setC]=useState(false);
+ return html`<${Act} n=${c?'check':'copy'} label="Copy" active=${c} on=${async()=>{if(await copy(text)){setC(true);setTimeout(()=>setC(false),1500)}}}/>`}
+
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${Root}/>`);
+</script>
+</body>
+</html>
